@@ -5,7 +5,7 @@
 > every phase in order, printing progress after each step.
 >
 > **Shared rules:** the agent MUST also load and obey
-> `qe-e2e-tool/rules/e2e-rules.md` for write-scope, dedup, guardrails.
+> `rules/e2e-rules.md` for write-scope, dedup, guardrails.
 
 ---
 
@@ -16,11 +16,11 @@ gathered.
 
 ### 0.0  Load credentials from `.env`
 
-If the file `qe-e2e-tool/.env` exists, load it:
+If the file `.env` exists, load it:
 
 ```bash
-if [ -f qe-e2e-tool/.env ]; then
-  set -a; source qe-e2e-tool/.env; set +a
+if [ -f .env ]; then
+  set -a; source .env; set +a
 fi
 ```
 
@@ -50,7 +50,7 @@ If `$SOURCE_TYPE == jira`:
   ```
 - If `$JIRA_PERSONAL_TOKEN` is missing, prompt:
   ```
-  "Jira API token (or set JIRA_PERSONAL_TOKEN in qe-e2e-tool/.env):"
+  "Jira API token (or set JIRA_PERSONAL_TOKEN in .env):"
   ```
 - If `$JIRA_BASE_URL` is missing, derive it from `$SOURCE_URL` (e.g.
   `https://redhat.atlassian.net` from
@@ -250,7 +250,7 @@ Write the test plan to a **local** output directory — it does NOT go into the
 operator repo or the PR.
 
 ```bash
-OUTPUT_DIR="qe-e2e-tool/output/${JIRA_KEY:-pr-$PR_NUMBER}"
+OUTPUT_DIR="output/${JIRA_KEY:-pr-$PR_NUMBER}"
 mkdir -p "$OUTPUT_DIR"
 ```
 
@@ -338,7 +338,7 @@ Skip this phase entirely if `$E2E_CODE_POSSIBLE == false`. Instead, print:
   To add e2e automation, create test/e2e/ in the operator repo first.
 ```
 
-Otherwise, follow the guardrails from `qe-e2e-tool/rules/e2e-rules.md`:
+Otherwise, follow the guardrails from `rules/e2e-rules.md`:
 
 ### 6.1  Pre-generation analysis (E2E-0)
 
@@ -566,7 +566,7 @@ Scope check:  PASSED (test/ only)
 
 ## Environment Variables
 
-All Jira-related variables can be pre-configured in `qe-e2e-tool/.env` (see
+All Jira-related variables can be pre-configured in `.env` (see
 Phase 0.0).
 
 | Variable | Required | Purpose |

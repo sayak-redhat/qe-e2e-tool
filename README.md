@@ -31,8 +31,8 @@ standalone binary — it runs inside your AI coding assistant.
 Copy the `.env` template and fill in your Atlassian credentials:
 
 ```bash
-cp qe-e2e-tool/.env.example qe-e2e-tool/.env
-# Edit qe-e2e-tool/.env with your values:
+cp .env.example .env
+# Edit .env with your values:
 #   JIRA_EMAIL=you@redhat.com
 #   JIRA_PERSONAL_TOKEN=your-atlassian-api-token
 #   JIRA_BASE_URL=https://redhat.atlassian.net
@@ -43,12 +43,12 @@ tool will prompt for credentials interactively when a Jira ticket is provided.
 
 ### Usage
 
-1. Open your operator project (or any workspace) in Cursor.
+1. Open this repo (or any workspace containing it) in Cursor.
 
 2. Tell the agent to run the tool:
 
    ```
-   Follow the instructions in qa-e2e-tool/qa-e2e-plan.md to generate
+   Follow the instructions in qa-e2e-plan.md to generate
    e2e tests for this PR:
    https://github.com/my-org/my-operator/pull/42
    ```
@@ -56,7 +56,7 @@ tool will prompt for credentials interactively when a Jira ticket is provided.
    Or for a Jira ticket:
 
    ```
-   Follow qa-e2e-tool/qa-e2e-plan.md to generate e2e tests for MYPROJ-123
+   Follow qa-e2e-plan.md to generate e2e tests for MYPROJ-123
    ```
 
 3. The agent walks through interactive prompts (environment, OCP version,
@@ -72,12 +72,20 @@ tool will prompt for credentials interactively when a Jira ticket is provided.
 
 4. Review the PR. CI handles compilation and test execution.
 
+### AI Agent Compatibility
+
+| Agent | Rules loaded automatically? | Notes |
+|-------|---------------------------|-------|
+| **Cursor** | Yes — `.cursor/rules/e2e-rules.md` is auto-loaded | Guardrails active in every conversation |
+| **Claude Code** | No — `qa-e2e-plan.md` loads `rules/e2e-rules.md` on demand | Same rules, loaded when the plan runs |
+| **Other agents** | No — point the agent to `rules/e2e-rules.md` | Works with any agent that can read markdown |
+
 ## What Gets Generated
 
 ### test-cases.md (local only)
 
-Written to `qe-e2e-tool/output/<jira-key>/test-cases.md` (or
-`qe-e2e-tool/output/pr-<number>/`). This file is **NOT** committed to the
+Written to `output/<jira-key>/test-cases.md` (or
+`output/pr-<number>/`). This file is **NOT** committed to the
 operator repo or included in the PR. A structured test plan with:
 
 - Test cases tagged by domain (install-health, rbac, olm-lifecycle, etc.)
@@ -101,19 +109,46 @@ follow the target repo's existing structure:
 
 ```
 qe-e2e-tool/
-  qa-e2e-plan.md          # Main command spec (agent follows this)
-  README.md               # This file
+  .cursor/
+    rules/
+      e2e-rules.md          # Cursor auto-loads this (always-on guardrails)
   rules/
-    e2e-rules.md          # Shared rules: write-scope, dedup, guardrails
-  .env                    # Jira credentials (git-ignored)
-  .env.example            # Template for .env
-  .gitignore              # Ignores .env and output/
-  output/                 # Local test plans (git-ignored)
+    e2e-rules.md            # Portable copy for non-Cursor agents
+  qa-e2e-plan.md            # Main command spec (agent follows this)
+  README.md                 # This file
+  .env.example              # Template for .env
+  .env                      # Jira credentials (git-ignored, create from .env.example)
+  .gitignore                # Ignores .env and output/
+  output/                   # Local test plans (git-ignored)
     SPIRE-494/
-      test-cases.md       # Generated test plan for SPIRE-494
+      test-cases.md         # Generated test plan for SPIRE-494
     pr-57/
-      test-cases.md       # Generated test plan for PR #57
+      test-cases.md         # Generated test plan for PR #57
 ```
+
+### Why two copies of `e2e-rules.md`?
+
+The rules file exists in two places to support different agents and usage
+scenarios:
+
+| File | Loaded by | When | Purpose |
+|------|-----------|------|---------|
+| `.cursor/rules/e2e-rules.md` | **Cursor IDE** (automatically) | Every conversation, always-on | Guardrails are active even when you are **not** running the tool (e.g., editing test files manually). Cursor scans `.cursor/rules/` at workspace startup and injects every `.md` file as agent instructions. |
+| `rules/e2e-rules.md` | **`qa-e2e-plan.md`** (explicitly, line 8) | Only when the tool runs | Portable copy that works with **any** AI agent (Claude Code, Copilot, etc.). Non-Cursor agents don't know about `.cursor/rules/`. |
+
+Both files have identical content. The duplication is intentional:
+
+- **Without `.cursor/rules/`** -- A Cursor user could start a normal
+  conversation (not running the tool) and accidentally edit files outside
+  `test/` with no guardrails stopping them.
+- **Without `rules/`** -- Claude Code or any non-Cursor agent would have no
+  way to load the rules, since `.cursor/` is a Cursor-specific convention
+  they ignore.
+
+If you only use Cursor, you can delete `rules/e2e-rules.md` and update the
+reference in `qa-e2e-plan.md` (line 8) to point to
+`.cursor/rules/e2e-rules.md` instead. But keeping both gives you portability
+at the cost of one duplicated file.
 
 ## Supported Operators
 
@@ -150,7 +185,7 @@ The tool covers 23 test domains organized in three tiers:
 ## Safety Guarantees
 
 - **Write-scope:** Only the operator's `test/` directory is modified in the PR.
-- **Local output:** `test-cases.md` is written locally to `qe-e2e-tool/output/`, never pushed.
+- **Local output:** `test-cases.md` is written locally to `output/`, never pushed.
 - **Dedup:** Existing tests are extended, never duplicated.
 - **Scope check:** `git diff --name-only` is verified before every commit.
 - **No local gate:** The tool does not run `go test`; CI handles validation.
@@ -159,7 +194,7 @@ The tool covers 23 test domains organized in three tiers:
 ## Example Session
 
 ```
-$ "Follow qa-e2e-tool/qa-e2e-plan.md for PR #57"
+$ "Follow qa-e2e-plan.md for PR #57"
 
 > Enter a Jira link or GitHub PR URL:
   https://github.com/sayak-redhat/zero-trust-workload-identity-manager/pull/57
