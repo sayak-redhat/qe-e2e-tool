@@ -139,7 +139,7 @@ Print: source title, files changed count, commit count.
 
 ```bash
 CLONE_DIR=$(mktemp -d)
-git clone --depth=1 "$REPO_URL" "$CLONE_DIR"
+git clone "$REPO_URL" "$CLONE_DIR"
 cd "$CLONE_DIR"
 ```
 
@@ -446,10 +446,15 @@ If non-test files appear, **remove them from staging** and report the issue.
 ## Phase 7 — Create Branch & Commit
 
 ```bash
+# Ensure we're on the latest default branch
+git checkout "$DEFAULT_BRANCH"
+git pull origin "$DEFAULT_BRANCH"
+
 # Derive branch name
 SLUG=$(echo "$PR_TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | head -c 40)
 BRANCH="qa/e2e-${PR_NUMBER:-${JIRA_KEY}}-${SLUG}"
 
+# Create new branch from updated main
 git checkout -b "$BRANCH"
 
 # Stage only test/ files (test-cases.md stays in the local output dir)
