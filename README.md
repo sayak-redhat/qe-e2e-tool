@@ -26,41 +26,93 @@ standalone binary — it runs inside your AI coding assistant.
 | [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) | Fast code search for dedup |
 | `GH_TOKEN` env var | GitHub authentication |
 
-### Configuration (Jira credentials)
+### Configuration
 
-Copy the `.env` template and fill in your Atlassian credentials:
+Copy the `.env` template and fill in your values:
 
 ```bash
 cp .env.example .env
-# Edit .env with your values:
-#   JIRA_EMAIL=you@redhat.com
-#   JIRA_PERSONAL_TOKEN=your-atlassian-api-token
-#   JIRA_BASE_URL=https://redhat.atlassian.net
 ```
 
-The `.env` file is git-ignored and never committed. If you skip this step, the
-tool will prompt for credentials interactively when a Jira ticket is provided.
+The `.env` file is git-ignored and never committed. It supports two modes:
+
+**Minimal `.env` (interactive)** -- fill in only what you know; the tool
+prompts for the rest at runtime:
+
+```bash
+JIRA_EMAIL=you@redhat.com
+JIRA_PERSONAL_TOKEN=your-atlassian-api-token
+JIRA_BASE_URL=https://redhat.atlassian.net
+```
+
+**Full `.env` (non-interactive)** -- fill in everything except the source
+(which you pass in the prompt); the tool runs with zero extra prompts:
+
+```bash
+# Jira credentials
+JIRA_EMAIL=you@redhat.com
+JIRA_PERSONAL_TOKEN=your-atlassian-api-token
+JIRA_BASE_URL=https://redhat.atlassian.net
+
+# Operator repo
+REPO_URL=https://github.com/org/operator-name
+
+# Cluster / environment (single value or slash-separated list)
+TARGET_ENV=aws / azure / bare-metal / gcp
+OCP_VERSION=4.18 / 4.19 / 4.20
+SCANNING=yes            # yes | no
+METRICS=yes             # yes | no
+OLM=yes                 # yes | no
+
+# Automation
+AUTO_CONFIRM=true       # skip confirmation prompt
+```
+
+#### All `.env` variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `JIRA_EMAIL` | If Jira source | — | Atlassian account email |
+| `JIRA_PERSONAL_TOKEN` | If Jira source | — | Atlassian API token |
+| `JIRA_BASE_URL` | No | Derived from URL | e.g. `https://redhat.atlassian.net` |
+| `REPO_URL` | Yes | — | Operator repository URL |
+| `TARGET_ENV` | No | `all` | Single value or `/`-separated list: `aws`, `azure`, `gcp`, `bare-metal`, `on-prem`, `all` |
+| `OCP_VERSION` | No | `all` | Single value or `/`-separated list: `4.14`, `4.16`, `4.18`, `4.19`, `4.20`, `all` |
+| `SCANNING` | No | `yes` | Generate image scanning/signing tests? (`yes` / `no`) |
+| `METRICS` | No | `yes` | Generate Prometheus metrics tests? (`yes` / `no`) |
+| `OLM` | No | `yes` | Generate OLM lifecycle tests? (`yes` / `no`) |
+| `AUTO_CONFIRM` | No | `false` | Skip the confirmation summary prompt |
+
+`TARGET_ENV` and `OCP_VERSION` accept multiple values separated by ` / `
+(e.g. `aws / gcp / bare-metal`). When multiple values are given, the
+generated tests include environment-specific annotations and skip-conditions
+for each target.
+
+Any variable set in the environment overrides `.env`. Any missing variable
+with a default uses that default silently. Any missing required variable
+triggers an interactive prompt.
 
 ### Usage
 
 1. Open this repo (or any workspace containing it) in Cursor.
 
-2. Tell the agent to run the tool:
+2. Tell the agent to run the tool, passing the Jira ticket or PR URL in
+   the prompt:
 
    ```
-   Follow the instructions in qa-e2e-plan.md to generate
-   e2e tests for this PR:
+   Follow qa-e2e-plan.md to generate e2e tests for
+   https://redhat.atlassian.net/browse/SPIRE-494
+   ```
+
+   Or for a GitHub PR:
+
+   ```
+   Follow qa-e2e-plan.md to generate e2e tests for
    https://github.com/my-org/my-operator/pull/42
    ```
 
-   Or for a Jira ticket:
-
-   ```
-   Follow qa-e2e-plan.md to generate e2e tests for MYPROJ-123
-   ```
-
-3. The agent walks through interactive prompts (environment, OCP version,
-   metrics, OLM) and then:
+3. The agent reads all other inputs from `.env` (prompting only for missing
+   values) and then:
 
    - Clones the target operator repo
    - Auto-discovers framework, CRDs, webhooks, RBAC, metrics
@@ -116,8 +168,8 @@ qe-e2e-tool/
     e2e-rules.md            # Portable copy for non-Cursor agents
   qa-e2e-plan.md            # Main command spec (agent follows this)
   README.md                 # This file
-  .env.example              # Template for .env
-  .env                      # Jira credentials (git-ignored, create from .env.example)
+  .env.example              # Template for .env (all configurable variables)
+  .env                      # Your configuration (git-ignored, create from .env.example)
   .gitignore                # Ignores .env and output/
   output/                   # Local test plans (git-ignored)
     SPIRE-494/
@@ -193,31 +245,48 @@ The tool covers 23 test domains organized in three tiers:
 
 ## Example Session
 
+### Non-interactive (full `.env`)
+
+With all variables set in `.env` and `AUTO_CONFIRM=true`:
+
 ```
-$ "Follow qa-e2e-plan.md for PR #57"
+$ "Follow qa-e2e-plan.md"
 
-> Enter a Jira link or GitHub PR URL:
-  https://github.com/sayak-redhat/zero-trust-workload-identity-manager/pull/57
+✓ Loaded .env (all inputs configured, AUTO_CONFIRM=true)
+✓ Source: SPIRE-494 (Jira)
+✓ Repo: sayak-redhat/zero-trust-workload-identity-manager
+✓ Env: aws / azure / bare-metal / gcp
+✓ OCP: 4.18 / 4.19 / 4.20
+✓ Scanning: yes | Metrics: yes | OLM: yes
 
-> Operator repo URL:
-  https://github.com/sayak-redhat/zero-trust-workload-identity-manager
-
-> Target environment? [all]: aws
-> OpenShift version? [all]: 4.14
-> Red Hat scanning? [yes]: yes
-> Metrics? [yes]: yes
-> OLM? [yes]: yes
-
-✓ PR #57: "Add SPIRE bundle injection webhook"
 ✓ Framework: operator-sdk | Test dir: test/e2e/
-✓ CSV: v0.1.0 | Operands: 4 | Webhooks: 1
+✓ CSV: v1.0.0 | Operands: 4 | Webhooks: 1
 
 ✓ Dedup: 3 extend, 2 new, 0 skip
 ✓ test-cases.md: 6 test cases, 6 domains
 ✓ e2e code: 2 new specs, 3 extended
 
-✓ Branch: qa/e2e-57-spire-bundle-webhook
-✓ PR: https://github.com/.../pull/999
+✓ Branch: qa/e2e-SPIRE-494-workload-attestation
+✓ PR: https://github.com/.../pull/2
 ✓ Red Hat certification: 8/8 ✓
 ✓ Scope check: test/ only ✓
+```
+
+### Interactive (minimal `.env`)
+
+With only Jira credentials in `.env`, the tool prompts for the rest:
+
+```
+$ "Follow qa-e2e-plan.md for SPIRE-494"
+
+> Operator repo URL:
+  https://github.com/sayak-redhat/zero-trust-workload-identity-manager
+
+> Target environment? [all]: aws / gcp
+> OpenShift version? [all]: 4.18 / 4.20
+> Red Hat scanning? [yes]: yes
+> Metrics? [yes]: yes
+> OLM? [yes]: yes
+
+  (same output as above)
 ```

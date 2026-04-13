@@ -149,6 +149,9 @@ rg '^const |^var ' test/e2e/utils/constants.go 2>/dev/null
 
 ### Phase E2E-2 — Helper and constant extraction
 
+- **NEVER modify or delete existing constants** in
+  `test/e2e/utils/constants.go`. Existing values may be depended on by other
+  tests. Only **append** new constants when a genuinely new value is needed.
 - Immutable values (timeouts, names, labels, ports) go into
   `test/e2e/utils/constants.go`.
 - Reusable functions (used in ≥ 2 tests) go into `test/e2e/utils.go` or a

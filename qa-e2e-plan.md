@@ -9,12 +9,12 @@
 
 ---
 
-## Phase 0 — Interactive Prompts
+## Phase 0 — Collect Inputs
 
-Collect inputs from the user. Do NOT proceed until all required inputs are
-gathered.
+Collect inputs from `.env` first. Only prompt the user for values that are
+**missing**. If every variable is set, the tool runs non-interactively.
 
-### 0.0  Load credentials from `.env`
+### 0.0  Load configuration from `.env`
 
 If the file `.env` exists, load it:
 
@@ -24,10 +24,13 @@ if [ -f .env ]; then
 fi
 ```
 
-This sets `$JIRA_EMAIL`, `$JIRA_PERSONAL_TOKEN`, and `$JIRA_BASE_URL` so the
-prompts below can be skipped when credentials are pre-configured.
+This populates all `$VARIABLES` below. Any variable already set in the
+environment (or passed on the command line) takes precedence.
 
-### 0.1  Source (required)
+### 0.1  Source (required — always from the user's prompt)
+
+Extract the Jira ticket or GitHub PR URL from the user's message. If the
+user did not include one, prompt:
 
 ```
 "Enter a Jira link or GitHub PR URL:"
@@ -37,6 +40,9 @@ prompts below can be skipped when credentials are pre-configured.
 - If the value looks like a Jira key (e.g. `PROJ-123`) or a URL containing
   `/browse/` → treat as **Jira ticket**.
 - Store as `$SOURCE_TYPE` (`pr` | `jira`) and `$SOURCE_URL`.
+
+> **Note:** `SOURCE_URL` is intentionally NOT loaded from `.env`. It changes
+> every run and should always be provided in the prompt.
 
 ### 0.2  Jira credentials (conditional)
 
@@ -59,6 +65,8 @@ If `$SOURCE_TYPE == jira`:
 
 ### 0.3  Operator repo URL (required)
 
+If `$REPO_URL` is set (from `.env`), use it. Otherwise prompt:
+
 ```
 "Operator repo URL (e.g. https://github.com/org/operator-name):"
 ```
@@ -68,36 +76,62 @@ If `$SOURCE_TYPE == jira`:
 
 ### 0.4  Target environment
 
+If `$TARGET_ENV` is set (from `.env`), use it. Otherwise prompt:
+
 ```
-"Target environment? (aws / azure / bare-metal / on-prem / all) [default: all]:"
+"Target environment? (aws / azure / gcp / bare-metal / on-prem / all) [default: all]:"
 ```
+
+Accepts a single value or a `/`-separated list (e.g. `aws / gcp / bare-metal`).
+Default: `all`.
 
 ### 0.5  OpenShift version
 
+If `$OCP_VERSION` is set (from `.env`), use it. Otherwise prompt:
+
 ```
-"OpenShift cluster version? (4.12 / 4.14 / 4.16 / all) [default: all]:"
+"OpenShift cluster version? (4.14 / 4.16 / 4.18 / 4.19 / 4.20 / all) [default: all]:"
 ```
 
+Accepts a single value or a `/`-separated list (e.g. `4.18 / 4.20`).
+Default: `all`.
+
 ### 0.6  Red Hat scanning
+
+If `$SCANNING` is set (from `.env`), use it. Otherwise prompt:
 
 ```
 "Red Hat image scanning & signing required? (yes / no) [default: yes]:"
 ```
 
+Default: `yes`.
+
 ### 0.7  Metrics
+
+If `$METRICS` is set (from `.env`), use it. Otherwise prompt:
 
 ```
 "Operator exports Prometheus metrics? (yes / no) [default: yes]:"
 ```
 
+Default: `yes`.
+
 ### 0.8  OLM
+
+If `$OLM` is set (from `.env`), use it. Otherwise prompt:
 
 ```
 "Operator uses OLM for installation? (yes / no) [default: yes]:"
 ```
 
-Print a summary table of all inputs and ask the user to confirm before
-continuing.
+Default: `yes`.
+
+### 0.9  Confirm and proceed
+
+Print a summary table of all inputs.
+
+If `$AUTO_CONFIRM` is `true`, skip the confirmation prompt and proceed
+immediately. Otherwise, ask the user to confirm before continuing.
 
 ---
 
