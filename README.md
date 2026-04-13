@@ -57,6 +57,9 @@ JIRA_BASE_URL=https://redhat.atlassian.net
 # Operator repo
 REPO_URL=https://github.com/org/operator-name
 
+# Upstream reference repo (optional)
+UPSTREAM_REPO_URL=https://github.com/spiffe/spire
+
 # Cluster / environment (single value or slash-separated list)
 TARGET_ENV=aws / azure / bare-metal / gcp
 OCP_VERSION=4.18 / 4.19 / 4.20
@@ -76,6 +79,7 @@ AUTO_CONFIRM=true       # skip confirmation prompt
 | `JIRA_PERSONAL_TOKEN` | If Jira source | — | Atlassian API token |
 | `JIRA_BASE_URL` | No | Derived from URL | e.g. `https://redhat.atlassian.net` |
 | `REPO_URL` | Yes | — | Operator repository URL |
+| `UPSTREAM_REPO_URL` | No | — | Upstream repo to study test patterns from (shallow-cloned) |
 | `TARGET_ENV` | No | `all` | Single value or `/`-separated list: `aws`, `azure`, `gcp`, `bare-metal`, `on-prem`, `all` |
 | `OCP_VERSION` | No | `all` | Single value or `/`-separated list: `4.14`, `4.16`, `4.18`, `4.19`, `4.20`, `all` |
 | `SCANNING` | No | `yes` | Generate image scanning/signing tests? (`yes` / `no`) |
@@ -87,6 +91,14 @@ AUTO_CONFIRM=true       # skip confirmation prompt
 (e.g. `aws / gcp / bare-metal`). When multiple values are given, the
 generated tests include environment-specific annotations and skip-conditions
 for each target.
+
+When `UPSTREAM_REPO_URL` is set, the tool shallow-clones the upstream repo,
+scans its `test/` directory for existing test patterns, and cross-references
+them with the Jira scenarios. If upstream already has a test for a scenario,
+the tool adapts it to your repo's structure, helpers, constants, and naming
+conventions instead of writing from scratch. The upstream code is a
+**reference**, not a copy -- generated tests always follow your repo's
+standards.
 
 Any variable set in the environment overrides `.env`. Any missing variable
 with a default uses that default silently. Any missing required variable

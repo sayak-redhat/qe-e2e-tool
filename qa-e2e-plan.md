@@ -74,6 +74,12 @@ If `$REPO_URL` is set (from `.env`), use it. Otherwise prompt:
 - Validate: `gh repo view <url> --json name` must succeed.
 - Store as `$REPO_URL`, derive `$OWNER/$REPO`.
 
+### 0.3.1  Upstream reference repo (optional)
+
+If `$UPSTREAM_REPO_URL` is set (from `.env`), use it. Otherwise skip — this
+is optional. When set, the tool shallow-clones the upstream repo in Phase 2.5
+and uses its test patterns as a reference for code generation.
+
 ### 0.4  Target environment
 
 If `$TARGET_ENV` is set (from `.env`), use it. Otherwise prompt:
@@ -128,7 +134,7 @@ Default: `yes`.
 
 ### 0.9  Confirm and proceed
 
-Print a summary table of all inputs.
+Print a summary table of all inputs (include `$UPSTREAM_REPO_URL` if set).
 
 If `$AUTO_CONFIRM` is `true`, skip the confirmation prompt and proceed
 immediately. Otherwise, ask the user to confirm before continuing.
@@ -198,6 +204,48 @@ If `$TEST_DIR` is empty, set `$E2E_CODE_POSSIBLE = false`; the tool will
 generate `test-cases.md` only.
 
 Print a discovery summary table.
+
+---
+
+## Phase 2.5 — Clone & Analyze Upstream (if UPSTREAM_REPO_URL is set)
+
+Skip this phase entirely if `$UPSTREAM_REPO_URL` is not set.
+
+### 2.5.1  Shallow-clone the upstream repo
+
+```bash
+UPSTREAM_DIR=$(mktemp -d)
+git clone --depth=1 "$UPSTREAM_REPO_URL" "$UPSTREAM_DIR"
+```
+
+### 2.5.2  Discover upstream test patterns
+
+```bash
+# Find test directory
+UPSTREAM_TEST_DIR=$(find "$UPSTREAM_DIR" -type d \( -name e2e -o -path '*/test/e2e' \) | head -1)
+
+# Extract spec tree (Describe / Context / It blocks)
+rg 'Describe\(|Context\(|It\(' "$UPSTREAM_TEST_DIR" --glob '*_test.go' > /tmp/upstream_specs.txt
+
+# Extract helper functions
+rg '^func ' "$UPSTREAM_TEST_DIR" > /tmp/upstream_helpers.txt
+
+# Extract constants and variables
+rg '^\s*(const|var)\s' "$UPSTREAM_TEST_DIR" > /tmp/upstream_constants.txt
+```
+
+Store as `$UPSTREAM_SPECS`, `$UPSTREAM_HELPERS`, `$UPSTREAM_CONSTANTS`,
+`$UPSTREAM_TEST_DIR`.
+
+### 2.5.3  Print upstream analysis summary
+
+Print a table with:
+- Upstream repo URL
+- Test directory path
+- Number of test files
+- Number of `It` blocks (spec count)
+- Number of helper functions
+- Number of constants
 
 ---
 
@@ -274,7 +322,27 @@ For each domain, decide:
 | Related file exists but different scenario | `new-in-file` — add new `Context`/`It` in the existing file |
 | No match at all | `new-file` — create new `*_test.go` (only if truly distinct) |
 
-Record results in a coverage map table.
+### 4.1  Cross-reference with upstream (if UPSTREAM_REPO_URL is set)
+
+If `$UPSTREAM_TEST_DIR` was discovered in Phase 2.5, run the same dedup
+queries against the upstream test directory for each scenario that was **not**
+found in the target repo (i.e. decisions `new-in-file` or `new-file`):
+
+```bash
+rg '<scenario-keyword>' "$UPSTREAM_TEST_DIR" --glob '*_test.go'
+```
+
+If upstream has a matching test for the scenario, change the decision to
+`adapt-from-upstream` — the upstream test will be used as a reference and
+rewritten to use the target repo's helpers, constants, and naming conventions.
+
+| Upstream hits | Decision |
+|---|---|
+| Upstream has a test for this scenario | `adapt-from-upstream` — rewrite upstream test using target repo's patterns |
+| Upstream does not cover this scenario | Keep original decision (`new-in-file` / `new-file`) |
+
+Record results in the coverage map table. Include the upstream file path and
+spec name for `adapt-from-upstream` entries.
 
 ---
 
@@ -381,6 +449,28 @@ Read all existing `*_test.go` files. Extract:
 - `By()` descriptions.
 - Helper functions in `utils.go` / `utils/` package.
 - Constants in `utils/constants.go`.
+
+### 6.1.5  For each TC with decision `adapt-from-upstream`
+
+If `$UPSTREAM_TEST_DIR` exists and the coverage map contains
+`adapt-from-upstream` entries:
+
+1. Read the matching upstream `It` block (and its surrounding `Context`).
+2. Study the upstream test's structure: setup, assertions, cleanup, helpers.
+3. **Rewrite the test** for the target repo:
+   - Replace upstream helper calls with the target repo's existing helpers
+     (from `utils.go` / `utils/`).
+   - Replace upstream constants with the target repo's constants (from
+     `utils/constants.go`), or append new constants if needed.
+   - Follow the target repo's `Describe` → `Context` → `It` structure.
+   - Use the target repo's naming conventions and labels.
+   - Apply `DeferCleanup`, `By()`, `Eventually`/`Consistently` patterns
+     matching the target repo's style.
+4. Do NOT copy upstream code verbatim. The upstream test is a **reference**
+   for what to test and how, but the generated code must follow the target
+   repo's standards.
+5. Place the adapted test in the correct file and `Context` in the target
+   repo (same rules as `new-in-file`).
 
 ### 6.2  For each TC with decision `extend`
 
