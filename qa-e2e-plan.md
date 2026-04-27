@@ -606,12 +606,20 @@ Test plan saved locally in $OUTPUT_DIR/test-cases.md."
 
 ## Phase 8 — Push & Create PR
 
+If `$CREATE_DRAFT_PR` is `true` (from `.env` or environment), pass **`--draft`** to `gh pr create` so the PR opens as a **draft** for review before marking ready.
+
 ```bash
 git push -u origin "$BRANCH"
+
+DRAFT_FLAG=""
+if [ "${CREATE_DRAFT_PR}" = "true" ]; then
+  DRAFT_FLAG="--draft"
+fi
 
 gh pr create \
   --base "$DEFAULT_BRANCH" \
   --head "$BRANCH" \
+  ${DRAFT_FLAG} \
   --title "QA: E2E tests for ${PR_TITLE:-$JIRA_SUMMARY}" \
   --body "$(cat <<'PREOF'
 ## E2E Test Generation
@@ -685,6 +693,7 @@ Scope check:  PASSED (test/ only)
 | Jira with no linked PR | Use Jira description for context; skip PR diff analysis; generate test-cases.md based on Jira fields. |
 | Missing Jira token | Prompt user; if still missing, abort with clear error. |
 | `gh pr create` fails (permissions) | Print error, suggest user fork the repo or check `GH_TOKEN`. |
+| Draft PRs | Set `CREATE_DRAFT_PR=true` in `.env` before Phase 8; `gh pr create` receives `--draft`. |
 | Non-standard Jira issue type | Accept any type; use summary + description for context. |
 | Invalid repo URL | Abort with error after `gh repo view` fails. |
 | Missing `go.mod` | Warn "no Go module found"; still attempt test-cases.md generation. |
@@ -700,6 +709,7 @@ Phase 0.0).
 
 | Variable | Required | Purpose |
 |---|---|---|
+| `CREATE_DRAFT_PR` | No | When `true`, Phase 8 passes `--draft` to `gh pr create`. |
 | `GH_TOKEN` | Yes (for `gh` CLI) | GitHub authentication for cloning, PR creation. |
 | `JIRA_EMAIL` | Conditional (Jira input) | Atlassian account email for Basic Auth. Set in `.env`. |
 | `JIRA_PERSONAL_TOKEN` | Conditional (Jira input) | Atlassian API token for Basic Auth. Set in `.env`. Never committed. |

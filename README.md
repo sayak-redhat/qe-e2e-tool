@@ -86,6 +86,7 @@ AUTO_CONFIRM=true       # skip confirmation prompt
 | `METRICS` | No | `yes` | Generate Prometheus metrics tests? (`yes` / `no`) |
 | `OLM` | No | `yes` | Generate OLM lifecycle tests? (`yes` / `no`) |
 | `AUTO_CONFIRM` | No | `false` | Skip the confirmation summary prompt |
+| `CREATE_DRAFT_PR` | No | `false` | When `true`, Phase 8 runs `gh pr create --draft` on the operator repo |
 
 `TARGET_ENV` and `OCP_VERSION` accept multiple values separated by ` / `
 (e.g. `aws / gcp / bare-metal`). When multiple values are given, the
